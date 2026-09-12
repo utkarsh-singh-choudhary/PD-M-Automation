@@ -1,0 +1,56 @@
+name: PM System Cron Jobs
+
+# Free way to run the daily/monthly/freshness jobs without paying for an
+# always-on background worker: GitHub's own scheduler calls the backend's
+# /api/cron/* endpoints (app/routers/cron.py) on a schedule. Needs:
+#   1. Repo secret PM_BACKEND_URL   - your deployed backend's base URL
+#   2. Repo secret PM_CRON_SECRET   - must match CRON_SECRET in the backend's env
+# Set both under Settings -> Secrets and variables -> Actions.
+#
+# GitHub Actions cron times are UTC. Asia/Kolkata is UTC+5:30, so:
+#   08:00 IST = 02:30 UTC   (daily reminders)
+#   09:00 IST = 03:30 UTC, 1st of month  (monthly report)
+#   08:30 IST = 03:00 UTC   (sheet freshness check)
+#
+# Free-tier note: if your backend is on Render's free web service plan, it
+# spins down after ~15 minutes idle and takes 30-50s to wake on the next
+# request. curl's --max-time below is set generously to absorb that cold
+# start rather than failing the job.
+
+on:
+  schedule:
+    - cron: "30 2 * * *"    # daily reminders, 08:00 IST
+    - cron: "0 3 1 * *"     # monthly report, 09:00 IST on the 1st
+    - cron: "0 3 * * *"     # sheet freshness check, 08:30 IST
+  workflow_dispatch: {}      # lets you trigger any job manually from the Actions tab
+
+jobs:
+  daily-reminders:
+    if: github.event.schedule == '30 2 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger daily reminder job
+        run: |
+          curl --fail --max-time 90 -X POST \
+            -H "X-Cron-Secret: ${{ secrets.PM_CRON_SECRET }}" \
+            "${{ secrets.PM_BACKEND_URL }}/api/cron/daily-reminders"
+
+  monthly-report:
+    if: github.event.schedule == '0 3 1 * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger monthly report job
+        run: |
+          curl --fail --max-time 90 -X POST \
+            -H "X-Cron-Secret: ${{ secrets.PM_CRON_SECRET }}" \
+            "${{ secrets.PM_BACKEND_URL }}/api/cron/monthly-report"
+
+  sheet-freshness:
+    if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sheet freshness check
+        run: |
+          curl --fail --max-time 90 -X POST \
+            -H "X-Cron-Secret: ${{ secrets.PM_CRON_SECRET }}" \
+            "${{ secrets.PM_BACKEND_URL }}/api/cron/sheet-freshness"
