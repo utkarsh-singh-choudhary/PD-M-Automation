@@ -1,0 +1,158 @@
+# Render Blueprint - deploys the backend API, the dedicated scheduler
+# worker, and a managed Postgres database in one shot.
+#
+# Deploy: push this repo to GitHub, then in Render: New -> Blueprint,
+# point it at the repo. Render reads this file and creates all three
+# resources. You still need to fill in the notification/storage secrets
+# below in the Render dashboard (Environment tab) after first deploy -
+# they are intentionally left as `sync: false` so they're never committed.
+#
+# The frontend is NOT included here - deploy it to Vercel instead (see
+# vercel.json + DEPLOYMENT.md), which is the better fit for Next.js.
+#
+# Architecture mirrors docker-compose.yml on purpose: `pm-backend` serves
+# HTTP only (RUN_SCHEDULER_IN_API=false); `pm-scheduler` is a separate
+# background worker that owns the daily reminder / monthly report / sheet-
+# freshness cron jobs. Only ONE instance of pm-scheduler should ever run -
+# do not scale that service's instance count above 1.
+
+databases:
+  - name: pm-system-db
+    plan: starter
+    databaseName: pm_system
+    user: pm_user
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: pm-backend
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    plan: starter
+    healthCheckPath: /health/ready
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pm-system-db
+          property: connectionString
+      - key: ENV
+        value: production
+      - key: RUN_SCHEDULER_IN_API
+        value: "false"
+      - key: TIMEZONE
+        value: Asia/Kolkata
+      - key: JWT_SECRET
+        generateValue: true
+      # Set this to your real Vercel frontend URL after that's deployed.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: APP_URL
+        sync: false
+      # Object storage - recommended: use S3/R2 in production rather than
+      # local disk, since Render's filesystem isn't guaranteed persistent
+      # across deploys on some plans.
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      # Notifications - fill in whichever provider(s) you're using.
+      - key: EMAIL_PROVIDER
+        value: smtp_generic
+      - key: NOTIFICATIONS_ENABLED
+        value: "true"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: MS365_TENANT_ID
+        sync: false
+      - key: MS365_CLIENT_ID
+        sync: false
+      - key: MS365_CLIENT_SECRET
+        sync: false
+      - key: MS365_SENDER_ADDRESS
+        sync: false
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: GMAIL_SENDER_ADDRESS
+        sync: false
+      - key: WHATSAPP_API_URL
+        sync: false
+      - key: WHATSAPP_API_TOKEN
+        sync: false
+      - key: ADMIN_WHATSAPP_NUMBERS
+        sync: false
+      - key: REPORT_RECIPIENTS
+        sync: false
+      - key: COMPANY_NAME
+        sync: false
+
+  - type: worker
+    name: pm-scheduler
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerCommand: python scheduler_main.py
+    plan: starter
+    # IMPORTANT: keep this at 1. The daily/monthly/freshness jobs are
+    # idempotent (NotificationLog + ScheduledJob unique constraints), but
+    # this is still meant to be a single always-on worker, not a scaled
+    # pool - Render's per-service instance count for this must stay 1.
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pm-system-db
+          property: connectionString
+      - key: ENV
+        value: production
+      - key: TIMEZONE
+        value: Asia/Kolkata
+      # Every notification env var above must be duplicated here too -
+      # the scheduler process sends the actual emails/WhatsApp messages,
+      # not the API process. Easiest way: in the Render dashboard, use
+      # "Copy from pm-backend" if offered, or set them the same as above.
+      - key: EMAIL_PROVIDER
+        value: smtp_generic
+      - key: NOTIFICATIONS_ENABLED
+        value: "true"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: WHATSAPP_API_URL
+        sync: false
+      - key: WHATSAPP_API_TOKEN
+        sync: false
+      - key: ADMIN_WHATSAPP_NUMBERS
+        sync: false
+      - key: REPORT_RECIPIENTS
+        sync: false
+      - key: COMPANY_NAME
+        sync: false
+      - key: APP_URL
+        sync: false

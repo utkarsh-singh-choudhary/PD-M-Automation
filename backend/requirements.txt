@@ -1,0 +1,32 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+alembic==1.13.2
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+# Pinned: passlib 1.7.4's bcrypt backend detection is broken by bcrypt>=4.1
+# (raises "password cannot be longer than 72 bytes" / "'bcrypt' has no
+# attribute '__about__'" on every hash/verify call, i.e. login is 100%
+# broken). pip installs bcrypt's latest by default since requirements.txt
+# didn't pin it - confirmed broken with a fresh `pip install -r
+# requirements.txt` today. 4.0.1 is the last version passlib 1.7.4 works
+# with correctly.
+bcrypt==4.0.1
+python-multipart==0.0.9
+openpyxl==3.1.5
+apscheduler==3.10.4
+jinja2==3.1.4
+reportlab==4.2.5
+google-auth==2.34.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.147.0
+msal==1.31.0
+httpx==0.27.2
+python-dotenv==1.0.1
+pytz==2024.1
+qrcode[pil]==7.4.2
+clamd==1.0.2
+boto3==1.35.24

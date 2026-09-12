@@ -1,0 +1,88 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pm_user
+      POSTGRES_PASSWORD: pm_password
+      POSTGRES_DB: pm_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - pm_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pm_user -d pm_system"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://pm_user:pm_password@db:5432/pm_system
+      # This process only serves HTTP - the scheduler runs in the
+      # dedicated `pm-scheduler` service below (Critical #2 fix).
+      RUN_SCHEDULER_IN_API: "false"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      # Swap to STORAGE_BACKEND=s3 (+ S3_* vars) for real production use,
+      # especially once you run more than one `backend` replica - local
+      # disk storage isn't shared across replicas even with the volume
+      # mount below.
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      LOCAL_STORAGE_DIR: /data/pm_storage
+    volumes:
+      - pm_storage_data:/data/pm_storage
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/health/ready').status==200 else sys.exit(1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Dedicated scheduler/worker process: owns the daily reminder job and the
+  # monthly report job. Only ONE replica of this should ever run at a time
+  # (unlike `backend`, which is safe to scale horizontally) - the
+  # NotificationLog and ScheduledJob idempotency keys protect against
+  # double-sends even if this were briefly duplicated during a deploy, but
+  # it isn't designed to be scaled like the API is.
+  scheduler:
+    build: ./backend
+    # No alembic upgrade here - `backend` already runs migrations on
+    # startup (see Dockerfile CMD), and running alembic from two services
+    # concurrently on first boot is an avoidable race. depends_on ensures
+    # this waits for db, but not for backend's migration to finish; if you
+    # deploy scheduler and backend as separate rollout steps, start backend
+    # first, or add a short startup delay / migration-check here.
+    command: ["python", "scheduler_main.py"]
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://pm_user:pm_password@db:5432/pm_system
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      # Server-side only (used by the Next.js API routes that proxy to
+      # FastAPI - see frontend/app/api/proxy). Never exposed to the
+      # browser; do NOT rename this to NEXT_PUBLIC_*.
+      API_URL: http://backend:8000
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pm_db_data:
+  pm_storage_data:
