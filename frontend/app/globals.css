@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background-color: #f4f5f7;
+  color: #1a1d21;
+}
+
+.kpi-card {
+  @apply bg-panel border border-border rounded-sm p-4 flex flex-col gap-1;
+}
+
+.kpi-value {
+  @apply text-2xl font-semibold text-ink;
+}
+
+.kpi-label {
+  @apply text-xs uppercase tracking-wide text-muted;
+}
+
+.status-pill {
+  @apply text-xs font-medium px-2 py-0.5 rounded-sm inline-block;
+}
+
+.data-table {
+  @apply w-full text-sm border-collapse;
+}
+
+.data-table th {
+  @apply text-left text-xs uppercase tracking-wide text-muted border-b border-border py-2 px-3;
+}
+
+.data-table td {
+  @apply border-b border-border py-2 px-3;
+}
