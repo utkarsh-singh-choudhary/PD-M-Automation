@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.jobs.scheduler import start_scheduler, scheduler
-from app.routers import machines, pm, import_router, health, auth, audit_router, employees, reports, admin_settings, breakdowns, checklists, data_freshness, cron
+from app.routers import machines, pm, import_router, health, auth, audit_router, employees, reports, admin_settings, breakdowns, checklists, data_freshness, cron, responsibilities
 
 
 @asynccontextmanager
