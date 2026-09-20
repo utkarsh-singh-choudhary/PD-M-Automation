@@ -50,11 +50,11 @@ Built from the actual structure of `Master_List_of_Plant_Machinery_SG_LLP_PM_PD_
   the previous month's report and emails a summary to `REPORT_RECIPIENTS`
   (comma-separated in `.env`) via whichever email provider is active.
 
-## Not yet implemented (next phases)
+## Next phases
 
 - SMS provider (WhatsApp and email are implemented; see "Notification provider setup" below)
 
-## Phase 5 additions (this update)
+## Phase 5 additions 
 
 - **HTML email + short WhatsApp templates**: every reminder/escalation now
   renders as a branded HTML email (with plain-text fallback) and a
@@ -103,7 +103,7 @@ verify reminders/reports actually send before treating the system as live.
 Vercel's free tier, and a free GitHub Actions cron in place of the paid
 always-on worker — same features, with a cold-start trade-off.
 
-## Phase 4 additions (this update)
+## Phase 4 additions 
 
 - **Alembic migrations**: `backend/alembic/versions/0001_initial.py` creates the
   full schema by hand (matches `app/models/models.py`). `Base.metadata.create_all`
