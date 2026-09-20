@@ -1,7 +1,5 @@
 # Preventive Maintenance Automation System — Phase 1
 
-Built from the actual structure of `Master_List_of_Plant_Machinery_SG_LLP_PM_PD_Plan_FY_26-27_updated.xlsx`.
-
 ## What's implemented (Phase 1 + core of Phase 2)
 
 - PostgreSQL schema: Machine, Employee, MachineResponsibility, PMPlan, PMActual,
